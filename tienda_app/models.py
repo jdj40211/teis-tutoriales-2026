@@ -8,6 +8,14 @@ class Libro(models.Model):
     def __str__(self):
         return self.titulo
 
+    @property
+    def stock_actual(self):
+        """Unidades disponibles. LibroSerializer lo expone como campo de solo lectura."""
+        try:
+            return self.inventario.cantidad
+        except Inventario.DoesNotExist:
+            return 0  # el libro todavía no tiene registro de inventario
+
 class Inventario(models.Model):
     libro = models.OneToOneField(Libro, on_delete=models.CASCADE)
     cantidad = models.PositiveIntegerField()

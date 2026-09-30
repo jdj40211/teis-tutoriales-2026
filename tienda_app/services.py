@@ -124,3 +124,11 @@ class CompraRapidaService:
             Orden.objects.create(libro=libro, total=total)
             return total
         return None
+
+
+class InventarioService:
+    """Consulta del inventario. La comparten la página HTML y la API de productos."""
+
+    def listar_libros(self):
+        # select_related evita una consulta extra por libro al leer el stock
+        return Libro.objects.select_related('inventario').order_by('id')

@@ -102,3 +102,54 @@ Este archivo lista todo lo que los enunciados de los tutoriales 1, 2 y 3 dicen d
 
 ### 2.8 El Mock no escribe el log
 - El T2 pide la captura del `[DEBUG] Mock Payment` y el T3 pide el log de pagos. Ambos usan la misma fábrica. Con `PAYMENT_PROVIDER=MOCK` no se escribe el log (el Mock no toca el archivo), así que la evidencia del T3 debe generarse sin esa variable. Quedó escrito en las guías de cada tutorial.
+
+## Tutorial 3
+
+### 3.1 `stock_actual` no existe en el modelo
+- El PDF dice: `LibroSerializer` con `fields = [..., 'stock_actual']`, con una nota que dice que puede ser un campo calculado o una propiedad del modelo.
+- Qué falló: `Libro` no tiene ese atributo, así que el serializer falla al construirse.
+- Qué hice: agregué la propiedad `Libro.stock_actual` (lee `inventario.cantidad` y devuelve 0 si el libro no tiene inventario). No requiere migración. El serializer queda tal cual el PDF.
+
+### 3.2 `request.user` sin login es `AnonymousUser`
+- El PDF dice: `usuario=request.user # Asumiendo autenticación básica o sesión`.
+- Qué falló: sin sesión iniciada, `request.user` es `AnonymousUser`, que no se puede guardar en la clave foránea `Orden.usuario`.
+- Qué hice: la vista pasa `request.user` solo si está autenticado y `None` si no. `Orden.usuario` admite null (migración del T2), así que la compra por la API funciona sin login y, con sesión, queda asociada al usuario. Una prueba cubre ambos casos. No se creó ningún usuario demo.
+
+### 3.3 La API llama a un método del servicio que tenía otra firma
+- El PDF dice: `servicio.ejecutar_compra(libro_id=..., direccion=..., usuario=...)`, pero el T2 define `ejecutar_proceso_compra(usuario, lista_productos, direccion)`.
+- Qué hice: ver 2.3. `ejecutar_compra(libro_id, cantidad=1, direccion="", usuario=None)` existe y es el que usa la API; `cantidad` es opcional, así que el payload del enunciado (sin cantidad) sigue valiendo.
+
+### 3.4 Un libro inexistente daba error 500
+- El PDF dice: `except ValueError` devuelve 409 y cualquier otra excepción devuelve 500.
+- Qué falló: el servicio usa `get_object_or_404`, que lanza `Http404` (no es `ValueError`); la API lo devolvía como "Error interno" 500.
+- Qué hice: la API captura `Http404` y responde 404 con `{"error": "El libro no existe."}`. Un pago rechazado por el banco sigue siendo 500, como en el PDF, pero ahora queda registrado con `logger.exception`.
+
+### 3.5 Límites en el serializer de entrada
+- El PDF dice: `libro_id = IntegerField()` sin límites. El repo base agregó `cantidad` (mínimo 1).
+- Qué falló: sin tope, `cantidad` de cien millones arma en memoria una lista enorme antes de validar el stock, y un `libro_id` gigante puede desbordar el entero de SQLite.
+- Qué hice: `libro_id` entre 1 y 2147483647 y `cantidad` entre 1 y 100; fuera de rango responde 400. Un libro sin registro de inventario responde 409 (sin stock) y no 404.
+
+### 3.6 La ruta del endpoint
+- El PDF dice: el docstring documenta `POST /api/comprar/`, el paso 4 registra `api/v1/comprar/`, y el Tutorial 5 prueba `/api/v1/comprar/`. `tienda_app/urls.py` se incluye en la raíz del proyecto, así que la ruta real es `/api/v1/comprar/`. Corregí el docstring.
+
+### 3.7 La vista HTML de inventario no existe
+- El PDF dice: "muestre que al comprar por API, la vista HTML de inventario refleja el cambio", pero el repo no tiene esa vista (y `compra.html` enlaza a `/`, que daba 404).
+- Qué hice: `InventarioView` en `/inventario/` (y en `/`, que arregla el enlace "Volver a la tienda"), con el template `inventario.html` que lista id, libro, precio y stock con enlaces a las compras. Usa `InventarioService`, el mismo servicio que alimenta la API de productos.
+
+### 3.8 `/api/v1/productos/` no está en ningún PDF
+- El Tutorial 6 pide un GET a `/api/v1/productos/` ("debe responder Django") y ningún enunciado lo define. Agregué `ProductoListAPIView`, que devuelve la lista de libros con `LibroSerializer` (precio como texto, por defecto de DRF: `"150.00"`).
+
+### 3.9 Dependencias y nombres de archivo de la entrega
+- El PDF dice: `pip install djangorestframework markdown django-filter`, o bien instalar con conda. Solo hace falta `rest_framework` en `INSTALLED_APPS`; `markdown` (mejora la interfaz web) y `django-filter` no se usan todavía. Quedan en `requirements.txt` porque el PDF los instala.
+- La entrega habla de "ambos archivos" pero lista tres evidencias (log, captura del POST, vista HTML). En `entrega/tutorial-03-DRF/` los archivos de código se llaman `api_views.py` y `serializers.py` (copias de `tienda_app/api/views.py` y `serializers.py`, para que no se confundan con `views.py` del resto de la app).
+
+### 3.10 La evidencia del T3 no se puede generar con el Mock
+- El PDF dice: "el sistema debe generar el log de pagos (usando la Factory que configuró la semana pasada)". Con `PAYMENT_PROVIDER=MOCK` no hay log. Las guías piden correr sin esa variable.
+
+### 3.11 La interfaz web de DRF
+- Con DRF, abrir `/api/v1/comprar/` en el navegador muestra "Method GET not allowed" (405), pero la página incluye el formulario para enviar el POST con JSON. Se verificó en un navegador real que pegar el JSON en "Content" y presionar POST devuelve 201.
+
+## Verificado y no verificado
+
+- Verificado: 75 pruebas automáticas (Django 4.2 y 5.2), y una prueba de humo con `runserver` y `curl`: tres compras HTML, compras por API, errores 400, 404 y 409, el log del estudiante y el `[DEBUG] Mock Payment` en la consola.
+- No verificado: Postman (se probó con `curl` y con la interfaz web de DRF, que envían la misma petición), Windows y Anaconda (los comandos de esos entornos están tomados de los PDF y de la documentación, no probados), y PostgreSQL (el proyecto usa SQLite).

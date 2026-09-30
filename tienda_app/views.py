@@ -1,7 +1,7 @@
 from django.http import Http404
 from django.views import View
 from django.shortcuts import render, HttpResponse
-from .services import CompraRapidaService, CompraService
+from .services import CompraRapidaService, CompraService, InventarioService
 from .infra.factories import PaymentFactory
 
 class CompraView(View):
@@ -64,3 +64,16 @@ class CompraRapidaView(View):
         if total is None:
             return render(request, self.template_name, {'error': 'El banco rechazó el pago.'}, status=402)
         return render(request, self.template_name, {'mensaje_exito': f'Compra exitosa. Total: ${total}'})
+
+
+class InventarioView(View):
+    """
+    Tutorial 3: página HTML con el inventario. Sirve para comprobar que una compra
+    hecha por la API (JSON) cambia los mismos datos que ve esta vista (HTML).
+    """
+
+    template_name = 'tienda_app/inventario.html'
+
+    def get(self, request):
+        libros = InventarioService().listar_libros()
+        return render(request, self.template_name, {'libros': libros})

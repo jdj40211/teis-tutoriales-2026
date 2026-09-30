@@ -67,12 +67,37 @@ python manage.py runserver
 ## 📂 Estructura de Archivos (App: tienda_app)
 ```
 tienda_app/
+├── api/              # Puerta JSON (Django REST Framework)
+│   ├── views.py      # CompraAPIView (POST /api/v1/comprar/) y ProductoListAPIView (GET /api/v1/productos/)
+│   └── serializers.py # Serializers: LibroSerializer y OrdenInputSerializer
 ├── domain/           # Lógica pura e Interfaces
 │   ├── logic.py      # SRP: Cálculo de IVA
-│   └── interfaces.py # DIP: Contrato de Pago
+│   ├── interfaces.py # DIP: Contrato de Pago
+│   └── builders.py   # Builder Pattern para el objeto complejo Orden
 ├── infra/            # Detalles técnicos
-│   └── gateways.py   # Implementación de Banco (Log local)
+│   ├── gateways.py   # Implementación de Banco (Log local con el nombre del estudiante)
+│   └── factories.py  # Factory Method para generación de procesadores (PAYMENT_PROVIDER)
+├── management/commands/preparar_datos.py  # Migra y crea los libros de prueba
 ├── services.py       # Capa de Servicio (Orquestación)
-├── views.py          # Class-Based Views
-└── models.py         # Modelos de Django
+├── views.py          # Class-Based Views (Compra, Compra Rápida e Inventario)
+├── models.py         # Modelos de Django
+└── tests/            # Pruebas: python manage.py test
+```
 
+## Rutas
+
+- `/` y `/inventario/`: página HTML con el inventario.
+- `/compra/<id>/`: compra (HTML).
+- `/compra-rapida/<id>/`: compra rápida (HTML).
+- `/api/v1/comprar/`: POST JSON, por ejemplo `{"libro_id": 1, "direccion_envio": "Calle 123"}`.
+- `/api/v1/productos/`: GET JSON con la lista de libros y su `stock_actual`.
+
+## Pruebas y configuración
+
+```bash
+python manage.py test
+PAYMENT_PROVIDER=MOCK python manage.py runserver   # pagos simulados, sin log
+```
+
+En `entrega/` hay una carpeta por tutorial con los archivos de entrega y la guía para
+generar la evidencia. `NOTAS-INCONSISTENCIAS.md` explica lo que hubo que ajustar respecto a los PDF.
