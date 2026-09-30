@@ -40,21 +40,24 @@ git clone [https://github.com/tu-usuario/django-clean-monolith.git](https://gith
 cd django-clean-monolith
 python -m venv venv
 source venv/bin/activate  # Windows: venv\Scripts\activate
-pip install django
+pip install -r requirements.txt
 ```
 ### 2. Base de datos
 ```bash
-python manage.py makemigrations
 python manage.py migrate
 ```
 
-### 3. Crear Datos e Prueba
-Ejecute el shell de Django: python manage.py shell
+### 3. Crear datos de prueba
+El comando `preparar_datos` aplica las migraciones y crea cuatro libros con stock
+(entre ellos "Clean Code en Python" a 150.0 con 10 unidades). Se puede repetir sin
+duplicar datos.
 ```bash
-from tienda.models import Libro, Inventario
-l = Libro.objects.create(titulo="Arquitectura Limpia", precio=250.0)
-Inventario.objects.create(libro=l, cantidad=5)
+python manage.py preparar_datos
+# Para volver al stock inicial y borrar las órdenes:
+python manage.py preparar_datos reiniciar
 ```
+(Si prefiere hacerlo a mano, el shell de Django sirve con
+`from tienda_app.models import Libro, Inventario`; la app se llama `tienda_app`.)
 
 ### 4. Ejecutar
 ```bash
@@ -63,7 +66,7 @@ python manage.py runserver
 
 ## 📂 Estructura de Archivos (App: tienda_app)
 ```
-tienda/
+tienda_app/
 ├── domain/           # Lógica pura e Interfaces
 │   ├── logic.py      # SRP: Cálculo de IVA
 │   └── interfaces.py # DIP: Contrato de Pago

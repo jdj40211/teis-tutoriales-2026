@@ -40,3 +40,44 @@ class CompraService:
         Orden.objects.create(libro=libro, total=total)
         
         return total
+
+
+class CompraRapidaService:
+    """
+    Tutorial 1, Paso 3: el caso de uso de la "Compra Rápida" extraído de la vista.
+    Aquí vive la orquestación (inventario, impuestos, pago). La vista solo
+    recibe el request y devuelve la respuesta.
+    """
+
+    def __init__(self, procesador_pago):
+        # DIP: dependemos de la interfaz ProcesadorPago, no de un banco concreto
+        self.procesador_pago = procesador_pago
+
+    def obtener_detalle(self, libro_id):
+        """Datos para mostrar en el GET: el libro y su total estimado con IVA."""
+        libro = get_object_or_404(Libro, id=libro_id)
+        total = CalculadorImpuestos.obtener_total_con_iva(libro.precio)
+        return {"libro": libro, "total": total}
+
+    def procesar(self, libro_id):
+        """
+        Compra de una unidad. Devuelve el total cobrado, o None si el
+        procesador de pago rechazó la transacción.
+        Lanza ValueError cuando no hay existencias.
+        """
+        libro = get_object_or_404(Libro, id=libro_id)
+        inv = Inventario.objects.filter(libro=libro).first()
+
+        # Un libro sin registro de inventario cuenta como sin existencias
+        if inv is None or inv.cantidad <= 0:
+            raise ValueError("No hay existencias.")
+
+        total = CalculadorImpuestos.obtener_total_con_iva(libro.precio)
+
+        if self.procesador_pago.pagar(total):
+            inv.cantidad -= 1
+            inv.save()
+            # La FBV original también dejaba la Orden registrada
+            Orden.objects.create(libro=libro, total=total)
+            return total
+        return None

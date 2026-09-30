@@ -1,0 +1,15 @@
+# Entorno virtual y cachés de Python
+venv/
+.venv/
+__pycache__/
+*.pyc
+
+# Base de datos local y logs generados al ejecutar el proyecto.
+# La evidencia de cada tutorial la genera cada estudiante en su máquina.
+db.sqlite3
+*.log
+
+# Archivos de editor y sistema
+.DS_Store
+._*
+.idea/

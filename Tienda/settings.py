@@ -117,6 +117,10 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 
+# Carpeta donde el BancoNacionalProcesador escribe su log de pagos.
+# Por defecto es la raíz del proyecto (Tutorial 1, Paso 4).
+PAGOS_LOG_DIR = BASE_DIR
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
