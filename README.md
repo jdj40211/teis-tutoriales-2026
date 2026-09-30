@@ -117,3 +117,16 @@ alcanzable desde la red interna de Docker. La base de datos se elige con las var
 `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST` y `DB_PORT`; sin `DB_HOST` se usa SQLite.
 La guía para la EC2 está en `entrega/tutorial-05-Strangler-Nginx/GUIA-DESPLIEGUE-AWS.md`.
 Las decisiones y los huecos de los enunciados están en `NOTAS-TUTORIALES-5-6.md`.
+
+## Strangler Pattern: Django (v1) y Flask (v2) detrás de Nginx (Tutorial 6)
+
+`microservicio_pagos/` contiene el microservicio Flask que atiende `POST /api/v2/comprar`.
+Nginx manda `/api/v1/` y la ruta raíz a Django (`web_django`) y `/api/v2/comprar` a Flask (`pagos_flask`).
+
+```bash
+docker compose up -d --build --remove-orphans
+docker compose restart nginx
+docker compose logs nginx   # cada línea dice backend=django_v1 o backend=flask_v2
+```
+
+La guía para la EC2 está en `entrega/tutorial-06-Flask-101/GUIA-DESPLIEGUE-AWS.md`.

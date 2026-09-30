@@ -1,0 +1,59 @@
+# Tutorial 6: el Strangler Pattern. Conviven el monolito Django (v1) y el
+# microservicio Flask (v2) detrás de un único Nginx.
+#
+# Sin la línea "version:" (obsoleta en Docker Compose v2).
+services:
+  db:
+    image: postgres:15
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=tienda_db
+      - POSTGRES_USER=postgres
+      # ADVERTENCIA: contraseña de ejemplo tomada del enunciado, solo para este
+      # laboratorio. No la reutilice en ningún sistema real.
+      - POSTGRES_PASSWORD=secret_password
+    # Deja a la base en estado "healthy" cuando ya acepta conexiones
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d tienda_db"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  web_django:          # El monolito (v1)
+    build: .
+    # Gunicorn. 'Tienda' es la carpeta de este proyecto donde vive wsgi.py.
+    command: gunicorn Tienda.wsgi:application --bind 0.0.0.0:8000
+    volumes:
+      - .:/app
+    depends_on:
+      db:
+        condition: service_healthy
+    # El PDF del Tutorial 6 dejó esto como '# ... (configuración previa)'. Al
+    # renombrar 'web' a 'web_django' hay que repetir las variables de la base
+    # de datos; sin ellas Django cae en SQLite y no ve los datos de Postgres.
+    environment:
+      - DB_NAME=tienda_db
+      - DB_USER=postgres
+      - DB_PASSWORD=secret_password
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DJANGO_ALLOWED_HOSTS=*
+
+  pagos_flask:         # El microservicio (v2): EL ESTRANGULADOR
+    build: ./microservicio_pagos
+    ports:
+      - "5000:5000"    # Solo para pruebas iniciales; luego se cierra (ver la guía)
+
+  nginx:
+    image: nginx:1.25-alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - web_django
+      - pagos_flask
+
+volumes:
+  postgres_data:

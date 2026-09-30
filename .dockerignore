@@ -13,5 +13,6 @@ db.sqlite3
 .idea/
 # Archivos de entrega y de pruebas locales, no hacen falta para ejecutar
 entrega/
+microservicio_pagos/
 docker-compose.override.yml
 NOTAS-*.md
