@@ -101,3 +101,19 @@ PAYMENT_PROVIDER=MOCK python manage.py runserver   # pagos simulados, sin log
 
 En `entrega/` hay una carpeta por tutorial con los archivos de entrega y la guía para
 generar la evidencia. `NOTAS-INCONSISTENCIAS.md` explica lo que hubo que ajustar respecto a los PDF.
+
+## Docker, Nginx y Gunicorn (Tutorial 5)
+
+La arquitectura de tres contenedores (`nginx`, `web` con Gunicorn y `db` con PostgreSQL) se levanta así:
+
+```bash
+docker compose up -d --build
+docker compose exec web python manage.py migrate
+docker compose exec web python manage.py preparar_datos
+```
+
+Nginx escucha en el puerto 80 del equipo y es el único que publica puertos; Django (`web`) solo es
+alcanzable desde la red interna de Docker. La base de datos se elige con las variables
+`DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST` y `DB_PORT`; sin `DB_HOST` se usa SQLite.
+La guía para la EC2 está en `entrega/tutorial-05-Strangler-Nginx/GUIA-DESPLIEGUE-AWS.md`.
+Las decisiones y los huecos de los enunciados están en `NOTAS-TUTORIALES-5-6.md`.

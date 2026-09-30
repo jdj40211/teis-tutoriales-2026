@@ -1,0 +1,17 @@
+# Lo que no debe entrar a la imagen
+.git
+.gitignore
+.dockerignore
+venv/
+.venv/
+__pycache__/
+*.pyc
+db.sqlite3
+*.log
+.DS_Store
+._*
+.idea/
+# Archivos de entrega y de pruebas locales, no hacen falta para ejecutar
+entrega/
+docker-compose.override.yml
+NOTAS-*.md

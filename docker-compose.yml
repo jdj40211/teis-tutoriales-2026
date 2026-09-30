@@ -1,5 +1,7 @@
-# Punto de partida del Tutorial 5: la aplicación dockerizada (Tutorial 4).
-# Django con runserver publicado en el puerto 8000 y PostgreSQL como base de datos.
+# Tutorial 5: Nginx + Gunicorn + Django + PostgreSQL (tres contenedores)
+#
+# No lleva la línea "version:" que traía el PDF: Docker Compose v2 la ignora
+# y avisa con una advertencia de que está obsoleta.
 services:
   db:
     image: postgres:15
@@ -8,10 +10,12 @@ services:
     environment:
       - POSTGRES_DB=tienda_db
       - POSTGRES_USER=postgres
-      # Contraseña de ejemplo para el laboratorio. No la use en ningún sistema real.
+      # ADVERTENCIA: contraseña de ejemplo tomada del enunciado, solo para este
+      # laboratorio. No la reutilice en ningún sistema real.
       - POSTGRES_PASSWORD=secret_password
-    # depends_on solo espera a que el contenedor arranque, no a que Postgres acepte
-    # conexiones. Este chequeo deja a la base en estado "healthy" cuando ya responde.
+    # depends_on por sí solo no espera a que Postgres acepte conexiones.
+    # Con este chequeo la base pasa a "healthy" cuando ya responde, y web
+    # espera ese estado antes de arrancar (ver depends_on de web).
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d tienda_db"]
       interval: 3s
@@ -20,11 +24,12 @@ services:
 
   web:
     build: .
-    command: python manage.py runserver 0.0.0.0:8000
+    # CAMBIO 1: usamos Gunicorn en lugar de runserver.
+    # 'Tienda' es la carpeta de este proyecto donde vive wsgi.py (el PDF dice
+    # 'tienda_project', que aquí no existe).
+    command: gunicorn Tienda.wsgi:application --bind 0.0.0.0:8000
     volumes:
       - .:/app
-    ports:
-      - "8000:8000"
     depends_on:
       db:
         condition: service_healthy
@@ -34,7 +39,22 @@ services:
       - DB_PASSWORD=secret_password
       - DB_HOST=db
       - DB_PORT=5432
+      # Detrás de Nginx la cabecera Host trae la IP de la EC2. '*' acepta cualquiera,
+      # aceptable en el laboratorio; en un sistema real ponga su IP o dominio.
       - DJANGO_ALLOWED_HOSTS=*
+    # NOTA: ya no hay sección 'ports' aquí. Django queda aislado del exterior
+    # y solo Nginx le habla, por la red interna de Docker.
+
+  # CAMBIO 2: agregamos el servicio Nginx
+  nginx:
+    image: nginx:1.25-alpine
+    ports:
+      - "80:80"   # Nginx es el único que da la cara a internet
+    volumes:
+      # Inyectamos nuestro archivo de configuración en el contenedor
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - web
 
 volumes:
   postgres_data:
