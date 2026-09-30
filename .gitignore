@@ -13,3 +13,6 @@ db.sqlite3
 .DS_Store
 ._*
 .idea/
+
+# Ajustes locales de Docker Compose (por ejemplo otro puerto para probar sin ocupar el 80)
+docker-compose.override.yml

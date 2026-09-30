@@ -2,3 +2,8 @@ Django>=4.2,<5.0
 djangorestframework
 markdown
 django-filter
+# Tutorial 4/5: PostgreSQL y servidor WSGI de producción
+psycopg2-binary
+gunicorn
+# Sirve los estáticos (CSS de DRF y del admin) cuando corre detrás de gunicorn
+whitenoise

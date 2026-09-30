@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -23,9 +24,19 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-6to$5m=6=aoi5e#omz-$c$j^rvkw6c57=+j9a(l$e+tk6x@l^#'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# Tutorial 4/5: se puede apagar desde el entorno (DJANGO_DEBUG=0). Por defecto
+# sigue encendido, igual que antes, para no cambiar el comportamiento local.
+DEBUG = os.environ.get('DJANGO_DEBUG', '1').lower() in ('1', 'true', 'yes', 'on')
 
-ALLOWED_HOSTS = []
+# Tutorial 4/5: los hosts permitidos salen del entorno, separados por comas.
+# Detrás de Nginx la cabecera Host trae la IP de la EC2, así que en el
+# docker-compose se define DJANGO_ALLOWED_HOSTS. Sin la variable queda el
+# valor seguro para desarrollo local.
+ALLOWED_HOSTS = [
+    host.strip()
+    for host in os.environ.get('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1,[::1]').split(',')
+    if host.strip()
+]
 
 
 # Application definition
@@ -43,6 +54,9 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    # Gunicorn no sirve archivos estáticos (solo runserver lo hace). WhiteNoise
+    # entrega los CSS de la interfaz de DRF y del admin, con DEBUG encendido o apagado.
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -74,12 +88,27 @@ WSGI_APPLICATION = 'Tienda.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+# Tutorial 4: con DB_HOST definido (Docker Compose) se usa PostgreSQL y el resto
+# de datos de conexión salen de DB_NAME, DB_USER, DB_PASSWORD y DB_PORT.
+# Sin DB_HOST se mantiene SQLite, así las pruebas y el runserver local no cambian.
+if os.environ.get('DB_HOST'):
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': os.environ.get('DB_NAME', 'tienda_db'),
+            'USER': os.environ.get('DB_USER', 'postgres'),
+            'PASSWORD': os.environ.get('DB_PASSWORD', ''),
+            'HOST': os.environ['DB_HOST'],
+            'PORT': os.environ.get('DB_PORT', '5432'),
+        }
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 
 # Password validation
@@ -117,6 +146,11 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = 'static/'
+
+# Carpeta a la que collectstatic copia los estáticos para que WhiteNoise los sirva.
+# El Dockerfile la apunta fuera de /app para que el volumen `.:/app` del
+# docker-compose no la tape.
+STATIC_ROOT = os.environ.get('STATIC_ROOT', BASE_DIR / 'staticfiles')
 
 # Carpeta donde el BancoNacionalProcesador escribe su log de pagos.
 # Por defecto es la raíz del proyecto (Tutorial 1, Paso 4).
