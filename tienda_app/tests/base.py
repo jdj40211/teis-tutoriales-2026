@@ -2,6 +2,7 @@
 import os
 import shutil
 import tempfile
+from decimal import Decimal
 from unittest import mock
 
 from django.test import override_settings
@@ -44,6 +45,6 @@ class LogTemporalMixin:
 
 
 def crear_libro(titulo="Clean Code en Python", precio="150.00", cantidad=10):
-    libro = Libro.objects.create(titulo=titulo, precio=precio)
+    libro = Libro.objects.create(titulo=titulo, precio=Decimal(precio))
     Inventario.objects.create(libro=libro, cantidad=cantidad)
     return libro

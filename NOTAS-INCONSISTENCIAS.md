@@ -61,3 +61,44 @@ Este archivo lista todo lo que los enunciados de los tutoriales 1, 2 y 3 dicen d
 ### 1.12 El enunciado no da la URL de la Compra Rápida
 - El PDF dice: "realice tres compras usando la nueva vista de Compra Rápida", sin indicar la ruta.
 - Qué hice: la ruta es `/compra-rapida/<id>/`. La página de inventario (T3) enlaza cada libro, y mientras tanto los ids son 1, 2, 3 y 4 tras `preparar_datos`.
+
+## Tutorial 2
+
+### 2.1 El `OrdenBuilder` del PDF no puede crear una Orden
+- El PDF dice: `Orden.objects.create(usuario=..., total=..., direccion_envio=...)` y `from . models import Orden` dentro de `domain/builders.py`.
+- Qué falló, comprobado con el código literal:
+  - El import debe ser `from ..models import Orden` (el modelo está en `tienda_app`, no en `domain`).
+  - El modelo `Orden` del repo base no tenía los campos `usuario` ni `direccion_envio`.
+  - `Orden.libro` es obligatorio (clave foránea sin null) y el Builder no lo pasa: `IntegrityError: NOT NULL constraint failed: tienda_app_orden.libro_id`.
+  - `sum(p.precio ...) * 1.19` es `Decimal * float`, que lanza `TypeError`.
+- Qué hice: agregué `usuario` (null permitido) y `direccion_envio` al modelo con la migración `0002_orden_usuario_direccion_envio` (la misma del repo del profesor). El Builder suma los precios como `Decimal`, deja el IVA y su redondeo a `CalculadorImpuestos` (ver 1.11) y guarda el primer libro de la lista en `Orden.libro`. Límite conocido: como el modelo tiene un solo `libro`, una orden con varios libros distintos guarda solo el primero como libro principal (el total y el descuento de inventario sí cuentan todos). Modelar líneas de pedido queda fuera del alcance del tutorial.
+
+### 2.2 El Builder exige un usuario que la tienda no tiene
+- El PDF dice: `if not self._usuario or not self._items: raise ValueError`.
+- Qué falló: ni la vista HTML ni la API (T3) exigen login, así que `usuario` es `None` o `AnonymousUser` y toda compra fallaría con "Datos insuficientes".
+- Qué hice: el usuario es opcional (`Orden.usuario` admite null); lo obligatorio es la lista de productos. Una compra sin login queda como compra de invitado.
+
+### 2.3 Dos nombres para el mismo método del servicio
+- El PDF dice: T2 define `ejecutar_proceso_compra(usuario, lista_productos, direccion)`; la vista heredada del repo base y el T3 llaman a `ejecutar_compra(libro_id, cantidad, direccion, usuario)`. Además el T2 guarda el procesador en `self.procesador` y el T1 lo llama `procesador_pago`.
+- Qué falló: con solo uno de los dos métodos, o la vista HTML o la API lanzan `AttributeError`.
+- Qué hice: `CompraService` tiene ambos, sobre un único flujo interno (`_procesar_orden`). `ejecutar_proceso_compra` devuelve el mensaje "Orden N procesada exitosamente." como en el PDF y `ejecutar_compra` devuelve el total, como espera la vista. El atributo se llama `procesador_pago` en todo el proyecto.
+
+### 2.4 El servicio del PDF no valida ni descuenta inventario
+- El PDF dice: el servicio construye la orden, cobra y responde; no toca `Inventario`. Si el pago falla, hace `orden.delete()` y lanza `Exception("Error en la pasarela de pagos.")`.
+- Qué falló: no hay error de sintaxis, pero el T3 exige que comprar por la API descuente inventario y responda 409 sin stock. Además, `orden.delete()` solo cubre el caso en que el banco devuelve `False`; si lanza una excepción queda una orden sin cobro.
+- Qué hice: el flujo valida el stock de cada libro antes de empezar (`ValueError` si no alcanza; un libro sin registro de inventario cuenta como sin stock) y luego, dentro de `transaction.atomic()`, crea la orden, descuenta el inventario y cobra. Si el banco rechaza o lanza un error, se deshace todo (orden y descuento). El descuento usa `F()` con la condición `cantidad__gte`, así dos compras a la vez no dejan el stock en negativo. El mensaje de pago rechazado es el del repo base ("La transacción fue rechazada por el banco.") y no el del PDF.
+- Además: `CompraView.post` del repo base atrapaba todo (`except (ValueError, Exception)`), incluso el `Http404` de un libro inexistente (respondía 400). Ahora relanza el 404.
+
+### 2.5 El Mock no cumple el contrato `ProcesadorPago`
+- El PDF dice: `class MockPaymentProcessor:` sin clase base.
+- Qué hice: hereda de `ProcesadorPago`, igual que el banco, para que ambos sean intercambiables (Liskov). No cambia el mensaje `[DEBUG] Mock Payment...`.
+
+### 2.6 El PDF solo muestra `setup_service` de `CompraView`
+- El PDF dice: muestra únicamente `setup_service`, y cambia `BancoNacionalProcesador()` por `PaymentFactory.get_processor()`.
+- Qué hice: apliqué ese cambio en `CompraView` y también en `CompraRapidaView`, para que el Mock funcione en las dos vistas. Las pruebas comprueban ambas.
+
+### 2.7 Nombre del paso del Builder en la presentación
+- La presentación del tema muestra `.en_direccion()` (y `.aplicar_cupon()`), pero el PDF del tutorial usa `.para_envio(...)`. Seguí el PDF (`para_envio`); `aplicar_cupon` no se pide en ningún tutorial.
+
+### 2.8 El Mock no escribe el log
+- El T2 pide la captura del `[DEBUG] Mock Payment` y el T3 pide el log de pagos. Ambos usan la misma fábrica. Con `PAYMENT_PROVIDER=MOCK` no se escribe el log (el Mock no toca el archivo), así que la evidencia del T3 debe generarse sin esa variable. Quedó escrito en las guías de cada tutorial.

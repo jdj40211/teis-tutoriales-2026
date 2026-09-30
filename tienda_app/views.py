@@ -1,7 +1,8 @@
+from django.http import Http404
 from django.views import View
 from django.shortcuts import render, HttpResponse
 from .services import CompraRapidaService, CompraService
-from .infra.gateways import BancoNacionalProcesador
+from .infra.factories import PaymentFactory
 
 class CompraView(View):
     """
@@ -10,9 +11,11 @@ class CompraView(View):
     """
     template_name = 'tienda_app/compra.html'
     
-    # Configuramos el servicio con su implementación de infraestructura
+    # Configuramos el servicio con la infraestructura que entrega la fábrica
     def setup_service(self):
-        gateway = BancoNacionalProcesador()
+        # ANTES: gateway = BancoNacionalProcesador()
+        # AHORA: delegación total a la Fábrica
+        gateway = PaymentFactory.get_processor()
         return CompraService(procesador_pago=gateway)
 
     def get(self, request, libro_id):
@@ -28,6 +31,8 @@ class CompraView(View):
                 'mensaje_exito': f"¡Gracias por su compra! Total: ${total}",
                 'total': total
             })
+        except Http404:
+            raise  # un libro que no existe debe responder 404, no 400
         except (ValueError, Exception) as e:
             # Manejo de errores de negocio transformados a respuesta de usuario
             return render(request, self.template_name, {
@@ -44,7 +49,7 @@ class CompraRapidaView(View):
     template_name = 'tienda_app/compra_rapida.html'
 
     def setup_service(self):
-        return CompraRapidaService(procesador_pago=BancoNacionalProcesador())
+        return CompraRapidaService(procesador_pago=PaymentFactory.get_processor())
 
     def get(self, request, libro_id):
         contexto = self.setup_service().obtener_detalle(libro_id)
